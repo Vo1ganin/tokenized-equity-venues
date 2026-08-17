@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venues Monitor — Tech · API</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body><div style="background:#8b6c1a22;border-bottom:1px solid #8b6c1a55;color:#c9a227;font:11px 'JetBrains Mono',monospace;text-align:center;padding:4px 8px">static demo snapshot · recorded 2026-08-17 21:04 UTC · data is frozen</div><script>const _f=window.fetch.bind(window);window.fetch=(u,o)=>_f(typeof u==='string'?u.replace(/api\/venue\/([^?]*)/,(m,p)=>'api/venue/'+p.replace(/[:\/]/g,'_')):u,o);</script>
+<div class="wrap">
+
+<header>
+  <div class="brand">VENUES MONITOR<small>EQUITIES OUTSIDE TRADFI</small></div>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a href="venue.html">Venues</a>
+    <a href="assets.html">Assets</a>
+    <a href="events.html">Events</a>
+    <a href="coverage.html">Coverage</a>
+    <a href="mechanics.html">Mechanics</a>
+    <a class="act" href="tech.html">Tech · API</a>
+  </nav>
+  <span class="theme-btn"></span>
+  <div class="hdr-meta">for those who want to verify the methodology<br>revision 17.08.2026</div>
+</header>
+
+<div class="toolbar">
+  <span class="lbl">Sections</span>
+  <a class="tlink" href="#apis">Sources · API</a>
+  <a class="tlink" href="#meth">Collection methodology</a>
+  <a class="tlink" href="#metrics">Metric calculation</a>
+  <a class="tlink" href="#storage">Storage</a>
+  <a class="tlink" href="#limits">Limitations</a>
+</div>
+
+<div class="page-title" style="margin-top:20px">
+  <h1>Tech sheet: sources and methodology</h1>
+  <span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11px;color:var(--faint)">30+ connectors · all endpoints are public, no keys required (Massive is optional)</span>
+</div>
+
+<section class="cat" id="apis">
+  <div class="cat-head" style="border-color:var(--line2)"><h2 style="font-size:14px">Data sources by venue</h2></div>
+  <table>
+    <thead><tr><th>Venue</th><th>Cat.</th><th>Endpoint</th><th>Instrument discovery</th><th>What we pull</th><th>Transport</th></tr></thead>
+    <tbody>
+      <tr><td>Hyperliquid HIP-3 + HyperCore spot</td><td><span class="chip" style="border-color:var(--c-dexperp);color:var(--c-dexperp)">A/D/E</span></td><td><span class="code">api.hyperliquid.xyz/info</span></td><td><span class="code">perpDexs</span> → <span class="code">metaAndAssetCtxs(dex=…)</span> — automatic, new deployers show up on their own</td><td>mid/vol/OI/funding/L2 book</td><td>REST + WS</td></tr>
+      <tr><td>Lighter</td><td><span class="chip" style="border-color:var(--c-dexperp);color:var(--c-dexperp)">A</span></td><td><span class="code">apidocs.lighter.xyz</span></td><td>orderBooks list</td><td>ticker/depth/funding/trades</td><td>REST</td></tr>
+      <tr><td>Ostium</td><td><span class="chip" style="border-color:var(--c-dexperp);color:var(--c-dexperp)">A</span></td><td><span class="code">metadata-backend.ostium.io</span> + subgraph (Ormi)</td><td>pairs list</td><td>prices/OI/funding; depth — from pool risk parameters</td><td>REST + subgraph</td></tr>
+      <tr><td>edgeX · GRVT</td><td><span class="chip" style="border-color:var(--c-dexperp);color:var(--c-dexperp)">A</span></td><td>each venue's native REST</td><td>instruments list, filtered by asset class</td><td>ticker/OI/funding</td><td>REST</td></tr>
+      <tr><td>Ondo Perps</td><td><span class="chip" style="border-color:var(--c-dexperp);color:var(--c-dexperp)">A</span></td><td><span class="code">api.ondoperps.xyz/v1</span></td><td><span class="code">perps/mark_prices</span>, tradfi filter on the base</td><td>mark/vol/OI; funding per market</td><td>REST</td></tr>
+      <tr><td>Binance: bStocks spot / TradFi perps / pre-IPO</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">B/C/D</span></td><td><span class="code">api.binance.com</span> · <span class="code">fapi.binance.com</span></td><td>spot: <span class="code">*B</span> suffix via whitelisting; futures: <span class="code">underlyingType ∈ {EQUITY, KR_EQUITY, PREMARKET}</span></td><td>ticker/OI/funding/depth</td><td>native REST</td></tr>
+      <tr><td>Bybit: xStocks spot / TradFi perps</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">B/C</span></td><td><span class="code">api.bybit.com/v5</span></td><td><span class="code">symbolType ∈ {stock, commodity, xstocks}</span></td><td>ticker/OI/funding/depth</td><td>native REST</td></tr>
+      <tr><td>OKX</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">C/D</span></td><td><span class="code">okx.com/api/v5</span></td><td>SWAP instruments, whitelisting by underlying</td><td>ticker/OI/funding/depth</td><td>native REST</td></tr>
+      <tr><td>Bitget / Gate / KuCoin Fut / BingX / HTX Fut</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">C</span></td><td>native v2/v4/v1 futures APIs</td><td>whitelisting by underlying (Gate mixes TSLAX_USDT suffixes and plain symbols)</td><td>ticker/OI/funding/depth</td><td>native REST</td></tr>
+      <tr><td>MEXC Futures</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">C</span></td><td><span class="code">contract.mexc.com/api/v1</span></td><td><span class="code">*STOCK_USDT</span> suffix (122 contracts)</td><td>ticker/OI/funding/depth</td><td>native REST</td></tr>
+      <tr><td>Kraken: xStocks spot / perps</td><td><span class="chip" style="border-color:var(--c-cexspot);color:var(--c-cexspot)">B/C</span></td><td>WS v2 + <span class="code">futures.kraken.com</span></td><td>spot: <b>WS v2 with <span class="code">include_tokenized_assets: true</span></b> (the pairs are NOT in the default REST listing); futures: <span class="code">PF_*X*USD</span> mask</td><td>ticker/depth; funding on perps</td><td>native WS + REST</td></tr>
+      <tr><td>Coinbase INTX</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">C/D</span></td><td><span class="code">api.international.coinbase.com</span></td><td>instruments, equity filter + SPCX</td><td>ticker/OI/funding</td><td>REST</td></tr>
+      <tr><td>Crypto.com Exchange</td><td><span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">C/D</span></td><td><span class="code">api.crypto.com/exchange/v1</span></td><td><span class="code">product_type=EQUITY</span> + *IPOUSD-PERP</td><td>ticker/OI/funding/depth</td><td>REST + WS</td></tr>
+      <tr><td>Gemini · Bitrue · BitMart · LBank · XT</td><td><span class="chip" style="border-color:var(--c-cexspot);color:var(--c-cexspot)">B</span></td><td>native spot APIs</td><td>whitelisting by underlying; Gemini — verify dShares coverage in the API</td><td>ticker/depth</td><td>native REST</td></tr>
+      <tr><td>Raydium · Jupiter · Pancake · Uniswap · Felix</td><td><span class="chip" style="border-color:var(--c-amm);color:var(--c-amm)">E</span></td><td><span class="code">api.geckoterminal.com</span></td><td>pool search by issuer phrases (xStock / Ondo / PreStock), best pool per network</td><td>pool price/volume/TVL</td><td>REST · 30 rpm limit</td></tr>
+      <tr><td>PreStocks · Jarsy</td><td><span class="chip" style="border-color:var(--c-preipo);color:var(--c-preipo)">D</span></td><td>GeckoTerminal / on-chain</td><td>issuer phrase search (PreStock)</td><td>price/volume/TVL</td><td>REST</td></tr>
+      <tr><td>Massive (ex-Polygon) reference</td><td><span class="chip">ref.</span></td><td><span class="code">api.massive.com/v3/reference/tickers</span></td><td>—</td><td>ticker/name/cap/CS-ETF type</td><td>REST · 1/day · key required</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="grid2" style="margin-top:26px">
+  <div class="panel" id="meth">
+    <h3 class="ph">Collection methodology</h3>
+    <ol class="tech-meth">
+      <li><b>Discovery</b> — hourly: the full instrument list of each venue via the filters above → diff against the registry → new instruments get <span class="code">listing_seen_at</span> and an Events entry; missing for 5 consecutive polls → <span class="code">delisted</span> (partial responses do not count).</li>
+      <li><b>Ticker snap</b> — every 60 s: mid, 24h vol (in USD at the margin-currency rate), OI, top-of-book spread. One pass = a batch of requests behind a per-domain rate limiter.</li>
+      <li><b>Funding</b> — every 5 min, normalized to an 8h interval (venues use 1h/4h/8h — we convert, otherwise the numbers are incomparable).</li>
+      <li><b>Depth</b> — hourly, in a full pass spread over time (not a burst): L2 book → notional within ±10/25/50 bps of mid, bid and ask separately. For AMMs — computed from the pool curve (x*y=k / CLMM ranges), not from a book.</li>
+      <li><b>Basis</b> — against the last official NYSE/Nasdaq close from reference; during market hours we do not compute against live NBBO (no feed), close only.</li>
+      <li><b>Reference</b> — 1/day via Massive: cap buckets mega&gt;$200B / large / mid / small / micro&lt;$300M; non-US underlyings sit outside the buckets.</li>
+      <li><b>Health</b> — age of the last successful snap per connector; &gt;15 min of silence → status <span class="code">stale</span> in <span class="code">/api/health</span>.</li>
+    </ol>
+  </div>
+  <div class="panel">
+    <h3 class="ph" id="metrics">Metric calculation</h3>
+    <table style="margin-top:0">
+      <tbody>
+        <tr><td class="num">ADV 7/30d</td><td>average vol over daily rollups (rollup at 00:10 UTC from minute snaps)</td></tr>
+        <tr><td class="num">spread median</td><td>median across all snaps over 24h (not the last snap)</td></tr>
+        <tr><td class="num">depth@±25bps</td><td>daily = average of 24 hourly snapshots; bid/ask separately</td></tr>
+        <tr><td class="num">funding 7d</td><td>average 8h-normalized rate × 3 × 365 → %/yr</td></tr>
+        <tr><td class="num">vol/OI</td><td>flow-type marker: &gt;5 — intraday, &lt;1 — positional</td></tr>
+        <tr><td class="num">Σ per asset</td><td>sum over all instruments on the underlying across all categories; basis — vol-weighted</td></tr>
+      </tbody>
+    </table>
+    <h3 class="ph" id="storage" style="margin-top:18px">Storage</h3>
+    <p style="font-size:12.5px;line-height:1.6">DuckDB <span class="code">venues.duckdb</span> + parquet partitions <span class="code">data/snapshots/YYYY-MM-DD/</span>. Minute snaps kept 30 days, hourly and daily — forever. ~1.5 GB/mo. Service API: <span class="code">/api/venues · /api/venue/{id} · /api/asset/{ticker} · /api/coverage · /api/history/{instrument} · /api/health</span>.</p>
+    <h3 class="ph" id="limits" style="margin-top:18px">Known limitations</h3>
+    <p style="font-size:12.5px;line-height:1.6;color:var(--dim)">· 24h volumes on CEXes are self-reported (wash trading is not filtered out; we treat depth as the primary metric) · AMM depth is model-derived, not executable · overnight basis is vs the close, not NBBO  · Gemini/Bitrue API coverage unconfirmed · funding on venues with a dynamic interval is approximated</p>
+  </div>
+</div>
+
+<p class="footnote">Connector list of the live service; history accumulates from first start (public venue APIs expose current state only).</p>
+
+</div>
+<script src="static/live.js"></script>
+<script>bindTheme(); if(document.getElementById("hdr-health")) renderHealth();</script>
+</body>
+</html>

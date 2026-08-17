@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venues Monitor — Assets</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body><div style="background:#8b6c1a22;border-bottom:1px solid #8b6c1a55;color:#c9a227;font:11px 'JetBrains Mono',monospace;text-align:center;padding:4px 8px">static demo snapshot · recorded 2026-08-17 21:04 UTC · data is frozen</div><script>const _f=window.fetch.bind(window);window.fetch=(u,o)=>_f(typeof u==='string'?u.replace(/api\/venue\/([^?]*)/,(m,p)=>'api/venue/'+p.replace(/[:\/]/g,'_')):u,o);</script>
+<div class="wrap">
+
+<header>
+  <div class="brand">VENUES MONITOR<small>EQUITIES OUTSIDE TRADFI · LIVE</small></div>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a href="venue.html">Venues</a>
+    <a class="act" href="assets.html">Assets</a>
+    <a href="events.html">Events</a>
+    <a href="coverage.html">Coverage</a>
+    <a href="mechanics.html">Mechanics</a>
+    <a href="tech.html">Tech · API</a>
+  </nav>
+  <span class="theme-btn"></span>
+  <div class="hdr-meta" id="hdr-health"></div>
+</header>
+
+<div class="toolbar">
+  <input class="fnum" id="search" style="width:180px" placeholder="🔍 ticker / name…">
+  <span class="sep"></span>
+  <span class="lbl">Σ volume ≥</span>
+  <span class="fbtn act" data-min="0">all</span>
+  <span class="fbtn" data-min="10">$10M</span>
+  <span class="fbtn" data-min="30">$30M</span>
+  <span class="fbtn" data-min="50">$50M</span>
+  <span class="fbtn" data-min="100">$100M</span>
+  <input class="fnum" id="vol-free" type="number" min="0" placeholder="custom, $M">
+  <span class="sep"></span>
+  <span class="lbl">Type</span>
+  <span class="fbtn tbtn act" data-t="">all</span>
+  <span class="fbtn tbtn" data-t="single_stock">stock</span>
+  <span class="fbtn tbtn" data-t="etf">ETF</span>
+  <span class="fbtn tbtn" data-t="index">indices</span>
+  <span class="fbtn tbtn" data-t="pre_ipo">pre-IPO</span>
+  <span class="fbtn tbtn" data-t="commodity">commodity</span>
+  <span class="sep"></span>
+  <span class="lbl" id="count"></span>
+</div>
+
+<section class="cat" style="margin-top:14px">
+  <div class="cat-head" style="border-color:var(--line2)">
+    <h2 style="font-size:14px">All assets · click a row to expand the per-venue breakdown</h2>
+    <div class="cat-stats">
+      <span style="color:var(--c-dexperp)">■ DEX perp</span><span style="color:var(--c-cexfut)">■ CEX perp</span>
+      <span style="color:var(--c-cexspot)">■ CEX spot</span>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Ticker</th><th>Name</th><th class="r">Cap</th><th class="r">Venues</th><th>Categories</th>
+      <th class="r sorted">Σ 24h volume</th><th class="r">Σ OI</th><th class="r">Funding spread</th><th class="r">Basis (agg.)</th><th>7d</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</section>
+
+<p class="footnote"><b>LIVE</b> · Cap — Massive ticker details (backfills gradually after start); Basis — vol-weighted vs NYSE close; funding spread across venues = carry candidate. Per-venue breakdown is fetched live on every click.</p>
+
+</div>
+<script src="static/live.js"></script>
+<script>
+let q = '', typ = '', DATA = [];
+const fcap = c => c == null ? '<span class="mut">—</span>' : (c >= 1e12 ? '$' + (c/1e12).toFixed(2) + 'T' : '$' + (c/1e9).toFixed(0) + 'B');
+const fsprd = v => v == null ? '<span class="mut">—</span>' : (v*3*365*100).toFixed(1) + '%/y';
+function catsq(cats) {
+  return Object.entries(cats || {}).map(([c, n]) =>
+    `<i style="color:${(CAT[c]||{}).color||'var(--faint)'};font-style:normal;letter-spacing:1px">${'■'.repeat(Math.min(n,6))}</i>`).join(' ');
+}
+async function expand(tr, t) {
+  if (tr.nextElementSibling && tr.nextElementSibling.classList.contains('exp-body')) {
+    tr.classList.toggle('open');
+    tr.nextElementSibling.style.display = tr.classList.contains('open') ? '' : 'none';
+    return;
+  }
+  const d = await j('api/asset/' + encodeURIComponent(t));
+  const body = document.createElement('tr');
+  body.className = 'exp-body';
+  body.innerHTML = `<td colspan="10"><table>
+    <thead><tr><th>Venue · symbol</th><th class="r">Price</th><th class="r">24h volume</th><th class="r">OI</th><th class="r">Funding (ann.)</th><th class="r">Spread</th><th class="r">Depth@±25</th><th class="r">Basis</th></tr></thead>
+    <tbody>${d.instruments.map(r => `<tr>
+      <td><a class="vn" href="venue.html?v=${eurl(r.venue_id)}">${esc(r.venue_id)}</a> <span class="num">${esc(r.symbol)}</span></td>
+      <td class="num r">${fpx(r.mid)}</td>
+      <td class="num r">${fm(r.vol24h_usd)}</td>
+      <td class="num r">${r.oi_usd ? fm(r.oi_usd) : '<span class="mut">—</span>'}</td>
+      <td class="num r">${ffund(r.funding_rate)}</td>
+      <td class="num r">${fbps(r.spread_bps)}</td>
+      <td class="num r">${r.depth25_usd ? fm(r.depth25_usd) : '<span class="mut">—</span>'}</td>
+      <td class="num r">${fbasis(r.basis_bps)}</td>
+    </tr>`).join('')}</tbody></table>
+    <p style="font-family:'JetBrains Mono';font-size:10px;color:var(--faint);margin:8px 0 4px">NYSE close ${d.closes_date || '—'}: ${d.nyse_close ?? '—'} · funding spread: ${d.funding_spread_8h != null ? (d.funding_spread_8h*3*365*100).toFixed(1)+'%/y' : '—'}</p></td>`;
+  tr.after(body);
+  tr.classList.add('open');
+}
+function draw() {
+  const list = DATA.filter(a =>
+    (!q || (a.underlying||'').includes(q) || (a.name||'').toUpperCase().includes(q)) &&
+    (!typ || a.asset_type === typ) &&
+    (a.vol24h_usd || 0) >= minVol);
+  document.getElementById('count').textContent = `${list.length} underlying`;
+  const mxv = Math.max(...list.map(a => a.vol24h_usd || 0), 1);
+  document.getElementById('rows').innerHTML = list.map(a => `
+    <tr class="exp-head" data-t="${esc(a.underlying)}">
+      <td class="num">${esc(a.underlying)}</td>
+      <td>${a.name ? esc(a.name) : '<span class="mut">—</span>'}${a.asset_type==='pre_ipo' ? ' <span class="chip new">pre-IPO</span>' : ''}</td>
+      <td class="num r">${fcap(a.cap)}</td>
+      <td class="num r">${a.n_venues}</td>
+      <td>${catsq(a.cats)}</td>
+      <td class="num r"><span class="bar" style="width:${Math.max(2, (a.vol24h_usd||0)/mxv*60)}px;background:${(CAT[Object.keys(a.cats||{})[0]]||{}).color||'var(--amber)'}"></span>${fm(a.vol24h_usd)}</td>
+      <td class="num r">${a.oi_usd ? fm(a.oi_usd) : '<span class="mut">—</span>'}</td>
+      <td class="num r">${fsprd(a.funding_spread)}</td>
+      <td class="num r">${fbasis(a.basis_bps)}</td>
+      <td>${sparkSvg(a.spark)}</td>
+    </tr>`).join('');
+  document.querySelectorAll('tr.exp-head').forEach(tr =>
+    tr.onclick = e => { if (!e.target.closest('a')) expand(tr, tr.dataset.t); });
+  bindSort();
+}
+async function load() {
+  DATA = await j('api/assets');
+  draw();
+  const t = new URLSearchParams(location.search).get('t');
+  if (t) { const tr = document.querySelector(`tr[data-t="${t}"]`); if (tr) { expand(tr, t); tr.scrollIntoView({block:'center'}); } }
+}
+document.getElementById('search').oninput = e => { q = e.target.value.toUpperCase(); draw(); };
+document.querySelectorAll('.fbtn[data-min]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.fbtn[data-min]').forEach(x => x.classList.remove('act'));
+  b.classList.add('act'); minVol = parseFloat(b.dataset.min) * 1e6; draw();
+}));
+document.getElementById('vol-free').oninput = e => {
+  document.querySelectorAll('.fbtn[data-min]').forEach(x => x.classList.remove('act'));
+  minVol = (parseFloat(e.target.value) || 0) * 1e6; draw();
+};
+document.querySelectorAll('.tbtn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tbtn').forEach(x => x.classList.remove('act'));
+  b.classList.add('act'); typ = b.dataset.t; draw();
+}));
+bindTheme(); renderHealth(); load();
+setInterval(renderHealth, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venues Monitor — Mechanics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">VENUES MONITOR<small>EQUITIES OUTSIDE TRADFI</small></div>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a href="venue.html">Venues</a>
+    <a href="assets.html">Assets</a>
+    <a href="events.html">Events</a>
+    <a href="coverage.html">Coverage</a>
+    <a class="act" href="mechanics.html">Mechanics</a>
+    <a href="tech.html">Tech · API</a>
+  </nav>
+  <span class="theme-btn"></span>
+  <div class="hdr-meta">reference tab · updated manually<br>revision 12.06.2026</div>
+</header>
+
+<div class="toolbar">
+  <span class="lbl">Types</span>
+  <a class="tlink" href="#m1"><i style="background:var(--c-dexperp)"></i>DEX perp</a>
+  <a class="tlink" href="#m2"><i style="background:var(--c-cexfut)"></i>CEX perp</a>
+  <a class="tlink" href="#m3"><i style="background:var(--c-cexspot)"></i>Tokenized stock</a>
+  <a class="tlink" href="#m4"><i style="background:var(--c-amm)"></i>AMM pool</a>
+  <a class="tlink" href="#m5"><i style="background:var(--c-preipo)"></i>Pre-IPO</a>
+  <a class="tlink" href="#m6"><i style="background:var(--c-off)"></i>CFD</a>
+  <a class="tlink" href="#m7"><i style="background:var(--c-off)"></i>Brokerage</a>
+  <a class="tlink" href="#cmp"><i style="border:1px solid var(--faint)"></i>Comparison</a>
+</div>
+
+<div class="page-title" style="margin-top:20px">
+  <h1>Instrument types and how they work</h1>
+  <span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11px;color:var(--faint)">7 types · a cheat sheet to keep them straight</span>
+</div>
+
+<div class="mech" id="m1" style="--mc: var(--c-dexperp)">
+  <h3>1 · DEX perp on a stock <span class="chip" style="border-color:var(--c-dexperp);color:var(--c-dexperp)">category A</span></h3>
+  <div class="who">trade.xyz and all of HIP-3 · Lighter · Ostium · Vest · Aster · edgeX · GRVT · ApeX · gTrade · Extended · Helix</div>
+  <dl>
+    <dt>What it is</dt><dd>A synthetic perpetual: there is no stock, only a position against an order book / AMM pool, tied to the underlying price through an oracle (Pyth, Stork; Ostium uses a licensed Nasdaq feed, trade.xyz — S&P).</dd>
+    <dt>Whose liquidity</dt><dd>Native on-chain order book (HL, Lighter) or an AMM risk pool (Vest, gTrade, Ostium). This is the only category with an <span class="g">honest public order book 24/7</span>.</dd>
+    <dt>Price anchoring</dt><dd>Funding every 1–8h pulls the perp toward the oracle; on weekends the oracle freezes at Friday close → the perp trades "Monday expectations" — hence the basis signal.</dd>
+    <dt>Hours</dt><dd>24/7 (Lighter still 24/5).</dd>
+    <dt>Risks</dt><dd>Oracle dependence (flash −45% on Ventuals), thin tails, funding dislocations when the crowd is one-sided.</dd>
+    <dt>What we monitor</dt><dd>OI, funding, depth@bps, basis vs NYSE, new listings. No history exists anywhere → our tick recorders.</dd>
+  </dl>
+</div>
+
+<div class="mech" id="m2" style="--mc: var(--c-cexfut)">
+  <h3>2 · CEX perp on a stock <span class="chip" style="border-color:var(--c-cexfut);color:var(--c-cexfut)">category C · largest</span></h3>
+  <div class="who">Binance TradFi · OKX · Bitget · Gate · Bybit · MEXC · KuCoin · Coinbase INTX · Crypto.com · Kraken Deriv · BingX · (HTX)</div>
+  <dl>
+    <dt>What it is</dt><dd>The same synthetic perp, but on a CEX: USDT margin, 10–50x leverage, the exchange's central order book. No stock and no issuer behind the instrument.</dd>
+    <dt>Whose liquidity</dt><dd>Exchange market makers. Volumes are huge ($8.8B/24h), but vol/OI is extreme — flow is intraday, depth is more modest than volume.</dd>
+    <dt>Price anchoring</dt><dd>Index price with an oracle (often Pyth) + funding; outside NYSE hours some exchanges cap the index at ±3–5% from the anchor — weekend moves are clamped.</dd>
+    <dt>Hours</dt><dd>24/7.</dd>
+    <dt>Risks</dt><dd>Exchange rules (delistings without warning — the MEXC renaming case), ADL, negligible OI in the tail.</dd>
+    <dt>What we monitor</dt><dd>Same as above + funding divergence across exchanges (carry) and the listing template (similar everywhere — a new contract on one exchange often foreshadows listings on the rest).</dd>
+  </dl>
+</div>
+
+<div class="mech" id="m3" style="--mc: var(--c-cexspot)">
+  <h3>3 · Tokenized stock, spot <span class="chip" style="border-color:var(--c-cexspot);color:var(--c-cexspot)">category B</span></h3>
+  <div class="who">issuers: Backed (xStocks) · Ondo GM · Dinari (dShares) · Binance bStocks — traded on Kraken/Bybit/Bitget/Gate/Gemini/… and on-chain</div>
+  <dl>
+    <dt>What it is</dt><dd>A 1:1 token on a real share: the issuer buys the share through a broker, holds it with a custodian (SPV in Switzerland/Jersey/ADGM) and mints the token. This is <span class="g">the only spot instrument with a real share behind it</span>.</dd>
+    <dt>Whose liquidity</dt><dd>The issuer's market makers (Flow Traders for Dinari) + mint/redeem arbitrageurs. During NYSE hours the token is arbitraged against the real share → tight spread; overnight the MM quotes "on expectations" → wider spread, lower depth.</dd>
+    <dt>Dividends / rights</dt><dd>Dividends are reinvested into the token or paid out (Bitget Stocks 2.0); no voting rights.</dd>
+    <dt>Hours</dt><dd>24/7 (some Kraken pairs — 24/5).</dd>
+    <dt>Risks</dt><dd>Issuer risk (SPV, jurisdiction), redemption mechanics limited to institutions, thin books ($60k–$1.2M volume per pair).</dd>
+    <dt>What we monitor</dt><dd>Spread/depth per venue, token basis vs NYSE, growth in the number of issued tickers (Backed's target — 500).</dd>
+  </dl>
+</div>
+
+<div class="mech" id="m4" style="--mc: var(--c-amm)">
+  <h3>4 · AMM pool on a tokenized stock <span class="chip" style="border-color:var(--c-amm);color:var(--c-amm)">category E</span></h3>
+  <div class="who">Raydium · Jupiter · PancakeSwap · Uniswap · Felix · HyperCore (order-book spot)</div>
+  <dl>
+    <dt>What it is</dt><dd>The same tokens as type 3, but in DEX pools: liquidity = pool TVL, price = the x*y=k curve (or CLMM ranges).</dd>
+    <dt>Whose liquidity</dt><dd>LP providers; depth is set by TVL, not an order book — we compute depth@bps from the pool curve.</dd>
+    <dt>Hours</dt><dd>24/7, executes on-chain — the leg for on-chain strategies (first block after news, etc.).</dd>
+    <dt>Risks</dt><dd>IL for LPs, thin pools, MEV/sandwiching on entry.</dd>
+    <dt>What we monitor</dt><dd>TVL, volume, price vs CEX (divergence = arbitrage signal), new pools (linked to the listing×on-chain sheet).</dd>
+  </dl>
+</div>
+
+<div class="mech" id="m5" style="--mc: var(--c-preipo)">
+  <h3>5 · Pre-IPO: perps and SPV tokens <span class="chip" style="border-color:var(--c-preipo);color:var(--c-preipo)">category D</span></h3>
+  <div class="who">perps: Binance · INTX · OKX · Kraken · Ventuals · Helix · Crypto.com — spot: PreStocks · Jarsy · Dinari SPCXD</div>
+  <dl>
+    <dt>What it is</dt><dd>Two different animals. <b>Perps</b> — pure synthetics on a private company; there is no underlying price, quotes are an <span class="g">implied valuation</span> ($B on Ventuals) or $/share (CEX) derived from secondary deals/rounds. <b>SPV tokens</b> — a token on a stake in an SPV that (supposedly) holds the shares.</dd>
+    <dt>Whose liquidity</dt><dd>Perps — exchange MMs, no oracle or a subjective one → funding and settlement rules decide everything. Tokens — Jupiter/Meteora pools, very thin.</dd>
+    <dt>Risks</dt><dd>Perps: settlement to the IPO price under venue rules, flash moments (Ventuals −45%). Tokens: <span class="r">the company can declare SPV transfers void</span> (OpenAI/Anthropic, −40% in May) — the token is not a claim on the share.</dd>
+    <dt>What we monitor</dt><dd>Cross-venue OI/vol, convergence to IPO (the SPCX case today), perp price divergence across venues, new names.</dd>
+  </dl>
+</div>
+
+<div class="mech" id="m6" style="--mc: var(--c-off)">
+  <h3>6 · CFD via MT5 <span class="chip">out of scope · opt. recorder</span></h3>
+  <div class="who">Bybit TradFi (~150 names, Infra Capital, Mauritius) · Gate CFD (44 pairs)</div>
+  <dl>
+    <dt>What it is</dt><dd>A contract-for-difference against a broker: no share and no exchange order book — a single counterparty (the exchange's LP), MetaTrader 5 platform.</dd>
+    <dt>Whose liquidity</dt><dd>An undisclosed LP; Bybit's $400k/account cap on stock CFDs hints at the depth. Dividends handled via position adjustments.</dd>
+    <dt>Data</dt><dd>NOT visible in exchange APIs. Channel: MT5 demo account (free) → the <code>MetaTrader5</code> package (Python, Windows-only) → ticks via copy_ticks_from; DOM not guaranteed. A separate mini-project.</dd>
+    <dt>Why watch it</dt><dd>The only feed of CFD liquidity — prices differ from the perps; a potential reference in off-hours.</dd>
+  </dl>
+</div>
+
+<div class="mech" id="m7" style="--mc: var(--c-off)">
+  <h3>7 · Brokerage of real stocks <span class="chip">out of scope · no API</span></h3>
+  <div class="who">Binance Stocks (~7,000, Nest→Alpaca) · Crypto.com Stocks (US-only, Foris→Apex) · MEXC RealStocks (Atomic Vaults) · Robinhood/Webull 24h</div>
+  <dl>
+    <dt>What it is</dt><dd>A regular brokerage account wrapped in a crypto app: the order goes to an introducing broker → clearing firm → PFOF wholesaler or exchange. Price = US market NBBO.</dd>
+    <dt>Whose liquidity</dt><dd>The US market itself. <span class="g">Overnight everyone shares a single leg — Blue Ocean ATS</span> (20:00–04:00 ET, limit-only, thin) → brokerage creates no independent prices overnight; off-hours price discovery is done by the perps (Binance NVDA perp $99M/day vs $0.6M on bStocks).</dd>
+    <dt>Access</dt><dd>Exchange KYC + broker agreement; Binance/MEXC/Bybit — not for US persons, Crypto.com — US only. Thousands of tickers, but nothing to poll — no one exposes an API.</dd>
+    <dt>Why it is in the monitor</dt><dd>Only as a reference for "where the long tail is accessible" + a source of future tokenized-version listings.</dd>
+  </dl>
+</div>
+
+<section class="cat" id="cmp" style="margin-top:34px">
+  <div class="cat-head" style="border-color:var(--line2)"><h2 style="font-size:14px">Type comparison at a glance</h2></div>
+  <table>
+    <thead><tr><th>Type</th><th>Share behind the instrument</th><th>Book/liquidity</th><th>Hours</th><th>Funding</th><th>API data</th><th>Key risk</th></tr></thead>
+    <tbody>
+      <tr><td><b style="color:var(--c-dexperp)">DEX perp</b></td><td class="mut">no (oracle)</td><td>on-chain book / risk pool</td><td class="num">24/7</td><td class="num">yes</td><td><span class="chip ok">full, public</span></td><td>oracle, thin tails</td></tr>
+      <tr><td><b style="color:var(--c-cexfut)">CEX perp</b></td><td class="mut">no (index)</td><td>exchange MMs, huge volume / modest OI</td><td class="num">24/7</td><td class="num">yes</td><td><span class="chip ok">full, public</span></td><td>exchange rules, delistings</td></tr>
+      <tr><td><b style="color:var(--c-cexspot)">Tokenized stock</b></td><td class="g">yes, 1:1 at a custodian</td><td>issuer MMs, thin overnight</td><td class="num">24/7</td><td class="mut">—</td><td><span class="chip ok">spot API (Kraken — WS flag)</span></td><td>issuer/SPV</td></tr>
+      <tr><td><b style="color:var(--c-amm)">AMM pool</b></td><td class="g">yes (same token)</td><td>pool TVL, curve</td><td class="num">24/7</td><td class="mut">—</td><td><span class="chip ok">GeckoTerminal/on-chain</span></td><td>thin pools, MEV</td></tr>
+      <tr><td><b style="color:var(--c-preipo)">Pre-IPO perp</b></td><td class="mut">no, valuation guesswork</td><td>exchange MMs, no oracle</td><td class="num">24/7</td><td class="num">yes</td><td><span class="chip ok">futures API</span></td><td>settlement rules, flash moves</td></tr>
+      <tr><td><b style="color:var(--c-preipo)">Pre-IPO SPV token</b></td><td class="mut">disputed (SPV)</td><td>thin pools</td><td class="num">24/7</td><td class="mut">—</td><td><span class="chip ok">on-chain</span></td><td><span class="dn">company voids the transfer</span></td></tr>
+      <tr><td><b class="mut">CFD (MT5)</b></td><td class="mut">no, contract with an LP</td><td>single undisclosed LP</td><td class="num">24/5*</td><td class="mut">swap</td><td><span class="chip warn">MT5 terminal only</span></td><td>counterparty</td></tr>
+      <tr><td><b class="mut">Brokerage</b></td><td class="g">yes, in an account at the clearer</td><td>US market / Blue Ocean overnight</td><td class="num">24/5</td><td class="mut">—</td><td><span class="chip warn">none</span></td><td>access/jurisdiction</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<p class="footnote">Reference tab · updated together with the venue landscape.</p>
+
+</div>
+<script src="static/live.js"></script>
+<script>bindTheme(); if(document.getElementById("hdr-health")) renderHealth();</script>
+</body>
+</html>

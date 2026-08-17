@@ -1,0 +1,14 @@
+services:
+  venues-monitor:
+    build: .
+    ports:
+      - "8090:8090"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - vm-data:/data
+    restart: unless-stopped
+
+volumes:
+  vm-data:

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venues Monitor — Overview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">VENUES MONITOR<small>EQUITIES OUTSIDE TRADFI · LIVE</small></div>
+  <nav>
+    <a class="act" href="index.html">Overview</a>
+    <a href="venue.html">Venues</a>
+    <a href="assets.html">Assets</a>
+    <a href="events.html">Events</a>
+    <a href="coverage.html">Coverage</a>
+    <a href="mechanics.html">Mechanics</a>
+    <a href="tech.html">Tech · API</a>
+  </nav>
+  <span class="theme-btn"></span>
+  <div class="hdr-meta" id="hdr-health"><span class="dot degr"></span>loading…</div>
+</header>
+
+<div class="toolbar">
+  <span class="lbl">Volume ≥</span>
+  <span class="fbtn act" data-min="0">all</span>
+  <span class="fbtn" data-min="10">$10M</span>
+  <span class="fbtn" data-min="30">$30M</span>
+  <span class="fbtn" data-min="50">$50M</span>
+  <span class="fbtn" data-min="100">$100M</span>
+  <input class="fnum" id="vol-free" type="number" min="0" placeholder="custom, $M">
+  <span class="sep"></span>
+  <span class="lbl" id="totals"></span>
+</div>
+
+<div class="kpis" id="kpis" style="grid-template-columns:repeat(5,1fr)"></div>
+<div id="cats"></div>
+
+<p class="footnote"><b>LIVE</b> · 30+ connectors: Hyperliquid HIP-3 (auto-discovery) · Ondo Perps · Lighter · Binance TradFi · CEX spot &amp; futures · on-chain AMM. Auto-refresh 30 s. CEX volumes are self-reported.</p>
+
+</div>
+<script src="static/live.js"></script>
+<script>
+async function render() {
+  const vs = await j('api/venues');
+  const sum = k => vs.reduce((a, v) => a + (v[k] || 0), 0);
+  const byCat = {};
+  vs.forEach(v => (byCat[v.category] = byCat[v.category] || []).push(v));
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="v">${vs.length}</div><div class="l">venues</div><div class="d">${vs.filter(v=>v.status==='live').length} live</div></div>
+    <div class="kpi"><div class="v">${sum('n_instruments')}</div><div class="l">instruments</div><div class="d">tradfi filter</div></div>
+    <div class="kpi"><div class="v">${fm(sum('vol24h_usd'))}</div><div class="l">24h volume</div><div class="d">all categories</div></div>
+    <div class="kpi"><div class="v">${fm(sum('oi_usd'))}</div><div class="l">Σ OI</div><div class="d">where available</div></div>
+    <div class="kpi"><div class="v">${Object.keys(byCat).length}</div><div class="l">categories</div><div class="d">DEX perps · CEX spot &amp; futures · AMM</div></div>`;
+  document.getElementById('totals').textContent =
+    `${vs.length} venues · ${sum('n_instruments')} instruments`;
+
+  let html = '';
+  for (const cat of ['dex_perp', 'cex_fut', 'cex_spot', 'onchain_amm']) {
+    const list = byCat[cat] || [];
+    if (!list.length) continue;
+    const c = CAT[cat];
+    const rows = list.map(v => `
+      <tr data-v="${v.vol24h_usd || 0}">
+        <td><a class="vn" href="venue.html?v=${eurl(v.venue_id)}">${esc(v.name)}</a><span class="sub">${esc(v.chain||'')} ${esc(v.notes||'')}</span></td>
+        <td class="num r">${v.n_instruments}</td>
+        <td class="num r">${fm(v.vol24h_usd)}</td>
+        <td class="num r">${v.oi_usd ? fm(v.oi_usd) : '<span class="mut">—</span>'}</td>
+        <td><span class="dot ${dotc(v.status)}"></span>${STLABEL[v.status]||v.status}</td>
+        <td class="num r mut">${v.snap_age_sec != null ? v.snap_age_sec + ' s' : '—'}</td>
+      </tr>`).join('');
+    html += `
+    <section class="cat" data-auto style="--catc:${c.color}">
+      <div class="cat-head">
+        <span class="cat-tag">${c.tag}</span><h2>${c.title}</h2>
+        <div class="cat-stats">
+          <span>venues <b>${list.length}</b></span>
+          <span>instruments <b>${list.reduce((a, v) => a + v.n_instruments, 0)}</b></span>
+          <span>Σ volume <b>${fm(list.reduce((a, v) => a + (v.vol24h_usd || 0), 0))}</b></span>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Venue</th><th class="r">Instr.</th><th class="r sorted">24h volume</th><th class="r">OI</th><th>Status</th><th class="r">Snap</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+  }
+  document.getElementById('cats').innerHTML = html;
+  bindSort(); applyVol();
+}
+bindTheme(); bindVolFilter(); renderHealth(); render();
+setInterval(() => { renderHealth(); render(); }, 30000);
+</script>
+</body>
+</html>

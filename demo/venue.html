@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venues Monitor — Venues</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body><div style="background:#8b6c1a22;border-bottom:1px solid #8b6c1a55;color:#c9a227;font:11px 'JetBrains Mono',monospace;text-align:center;padding:4px 8px">static demo snapshot · recorded 2026-08-17 21:04 UTC · data is frozen</div><script>const _f=window.fetch.bind(window);window.fetch=(u,o)=>_f(typeof u==='string'?u.replace(/api\/venue\/([^?]*)/,(m,p)=>'api/venue/'+p.replace(/[:\/]/g,'_')):u,o);</script>
+<div class="wrap">
+
+<header>
+  <div class="brand">VENUES MONITOR<small>EQUITIES OUTSIDE TRADFI · LIVE</small></div>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a class="act" href="venue.html">Venues</a>
+    <a href="assets.html">Assets</a>
+    <a href="events.html">Events</a>
+    <a href="coverage.html">Coverage</a>
+    <a href="mechanics.html">Mechanics</a>
+    <a href="tech.html">Tech · API</a>
+  </nav>
+  <span class="theme-btn"></span>
+  <div class="hdr-meta" id="hdr-health"></div>
+</header>
+
+<div class="toolbar">
+  <span class="lbl">Volume ≥</span>
+  <span class="fbtn act" data-min="0">all</span>
+  <span class="fbtn" data-min="10">$10M</span>
+  <span class="fbtn" data-min="30">$30M</span>
+  <span class="fbtn" data-min="50">$50M</span>
+  <span class="fbtn" data-min="100">$100M</span>
+  <input class="fnum" id="vol-free" type="number" min="0" placeholder="custom, $M">
+  <span class="fbtn" id="hide-dead">hide degraded</span>
+  <span class="sep"></span>
+  <span class="lbl">selected: <b id="cur" style="color:var(--amber)"></b></span>
+</div>
+
+<div class="vlayout" style="margin-top:16px">
+  <aside class="vside" id="side"></aside>
+
+  <div>
+    <div class="page-title" style="margin-top:0">
+      <h1 id="vname">…</h1>
+      <span class="chip" id="vcat"></span>
+      <span class="chip mut" id="vchain"></span>
+      <span style="margin-left:auto" id="vstatus"></span>
+    </div>
+    <div class="kpis" id="kpis" style="grid-template-columns:repeat(4,1fr);margin-top:12px"></div>
+
+    <section class="cat" style="margin-top:18px">
+      <div class="cat-head" style="border-color:var(--line2)">
+        <h2 style="font-size:14px">Instruments</h2>
+        <div class="cat-stats" id="istats"></div>
+      </div>
+      <table>
+        <thead><tr><th>Symbol</th><th>Underlying</th><th>Type</th><th class="r">Price</th><th class="r sorted">24h volume</th><th class="r">OI</th><th class="r">Funding (ann.)</th><th class="r">Spread</th><th class="r">Depth@±25bps</th><th class="r">Basis</th><th>Listing seen</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </div>
+</div>
+
+<p class="footnote"><b>LIVE</b> · left — all venues with live volumes; click for the venue card. Spread: where the exchange does not return bid/ask in the ticker, it comes from the hourly depth pass. Basis — vs NYSE close. Auto-refresh 30 s.</p>
+
+</div>
+<script src="static/live.js"></script>
+<script>
+let vid = new URLSearchParams(location.search).get('v');
+let hideDead = false, venuesCache = [];
+
+function renderSide() {
+  const order = ['dex_perp', 'cex_fut', 'cex_spot', 'onchain_amm'];
+  let html = '';
+  for (const cat of order) {
+    const list = venuesCache.filter(v => v.category === cat)
+      .filter(v => (v.vol24h_usd || 0) >= minVol && !(hideDead && v.status !== 'live'))
+      .sort((a, b) => (b.vol24h_usd || 0) - (a.vol24h_usd || 0));
+    if (!list.length) continue;
+    html += `<h4 style="color:${CAT[cat].color}">${CAT[cat].tag}</h4>`;
+    html += list.map(v =>
+      `<a class="${v.venue_id === vid ? 'act' : ''}" href="venue.html?v=${eurl(v.venue_id)}">
+         ${esc(v.name)}${v.status !== 'live' ? ' <span class="chip warn">degr</span>' : ''}
+         <span class="vol">${fm(v.vol24h_usd)}</span></a>`).join('');
+  }
+  document.getElementById('side').innerHTML = html;
+}
+
+async function renderVenue() {
+  const d = await j('api/venue/' + vid);
+  const v = d.venue, rows = d.instruments;
+  document.title = 'Venues Monitor — ' + v.name;
+  document.getElementById('vname').textContent = v.name;
+  document.getElementById('cur').textContent = v.name;
+  document.getElementById('vcat').textContent = (CAT[v.category] || {}).tag || v.category;
+  document.getElementById('vchain').textContent = v.chain || '';
+  const vmeta = venuesCache.find(x => x.venue_id === vid) || {};
+  const auxbits = Object.entries(vmeta.aux || {}).map(([c, a]) =>
+    `<span class="chip ${a.state === 'live' ? 'ok' : 'warn'}">${c}: ${STLABEL[a.state] || a.state}${a.age_sec != null ? ' ' + a.age_sec + 's' : ''}</span>`).join(' ');
+  document.getElementById('vstatus').innerHTML =
+    `<span class="dot ${dotc(vmeta.status || 'live')}"></span><span style="font-family:'JetBrains Mono';font-size:11px;color:var(--green)">${STLABEL[vmeta.status] || vmeta.status || ''} · snap ${vmeta.snap_age_sec ?? '—'} s ago</span> ${auxbits}`;
+  const vol = rows.reduce((a, r) => a + (r.vol24h_usd || 0), 0);
+  const oi = rows.reduce((a, r) => a + (r.oi_usd || 0), 0);
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="v">${rows.length}</div><div class="l">instruments</div></div>
+    <div class="kpi"><div class="v">${fm(vol)}</div><div class="l">24h volume</div></div>
+    <div class="kpi"><div class="v">${oi ? fm(oi) : '—'}</div><div class="l">OI</div></div>
+    <div class="kpi"><div class="v">${rows.filter(r => r.asset_type === 'single_stock').length}</div><div class="l">single stock</div></div>`;
+  const byType = {};
+  rows.forEach(r => byType[r.asset_type] = (byType[r.asset_type] || 0) + 1);
+  document.getElementById('istats').innerHTML = Object.entries(byType)
+    .map(([t, n]) => `<span>${AT[t] || t} <b>${n}</b></span>`).join('') +
+    '<span style="color:var(--faint)">click a ticker → Assets</span>';
+  document.getElementById('rows').innerHTML = rows.map(r => `
+    <tr data-v="${r.vol24h_usd || 0}">
+      <td class="num">${esc(r.symbol)}</td>
+      <td><a class="vn" href="assets.html?t=${eurl(r.underlying)}">${esc(r.underlying)}</a></td>
+      <td class="mut">${AT[r.asset_type] || r.asset_type}</td>
+      <td class="num r">${fpx(r.mid)}</td>
+      <td class="num r">${fm(r.vol24h_usd)}</td>
+      <td class="num r">${r.oi_usd ? fm(r.oi_usd) : '<span class="mut">—</span>'}</td>
+      <td class="num r">${ffund(r.funding_rate)}</td>
+      <td class="num r">${fbps(r.spread_bps)}</td>
+      <td class="num r">${r.depth25_usd ? fm(r.depth25_usd) : '<span class="mut">—</span>'}</td>
+      <td class="num r">${fbasis(r.basis_bps)}</td>
+      <td class="num mut">${(r.listing_seen_at || '').slice(0, 16)}</td>
+    </tr>`).join('');
+  bindSort();
+}
+
+async function boot() {
+  venuesCache = await j('api/venues');
+  if (!vid || !venuesCache.some(v => v.venue_id === vid)) {
+    vid = (venuesCache[0] || {}).venue_id;
+  }
+  renderSide();
+  await renderVenue();
+}
+document.getElementById('hide-dead').onclick = e => {
+  hideDead = !hideDead; e.target.classList.toggle('act', hideDead); renderSide();
+};
+document.querySelectorAll('.fbtn[data-min]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.fbtn[data-min]').forEach(x => x.classList.remove('act'));
+  b.classList.add('act'); minVol = parseFloat(b.dataset.min) * 1e6; renderSide();
+}));
+document.getElementById('vol-free').oninput = e => {
+  document.querySelectorAll('.fbtn[data-min]').forEach(x => x.classList.remove('act'));
+  minVol = (parseFloat(e.target.value) || 0) * 1e6; renderSide();
+};
+bindTheme(); renderHealth(); boot();
+setInterval(() => { renderHealth(); renderVenue().catch(()=>{}); }, 30000);  // don't redraw the sidebar — avoids flicker
+</script>
+</body>
+</html>

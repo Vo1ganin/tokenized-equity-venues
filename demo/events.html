@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venues Monitor — Events</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body><div style="background:#8b6c1a22;border-bottom:1px solid #8b6c1a55;color:#c9a227;font:11px 'JetBrains Mono',monospace;text-align:center;padding:4px 8px">static demo snapshot · recorded 2026-08-17 21:04 UTC · data is frozen</div><script>const _f=window.fetch.bind(window);window.fetch=(u,o)=>_f(typeof u==='string'?u.replace(/api\/venue\/([^?]*)/,(m,p)=>'api/venue/'+p.replace(/[:\/]/g,'_')):u,o);</script>
+<div class="wrap">
+
+<header>
+  <div class="brand">VENUES MONITOR<small>EQUITIES OUTSIDE TRADFI · LIVE</small></div>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a href="venue.html">Venues</a>
+    <a href="assets.html">Assets</a>
+    <a href="events.html" class="act">Events</a>
+    <a href="coverage.html">Coverage</a>
+    <a href="mechanics.html">Mechanics</a>
+    <a href="tech.html">Tech · API</a>
+  </nav>
+  <span class="theme-btn"></span>
+  <div class="hdr-meta" id="hdr-health"></div>
+</header>
+
+<div class="page-title" style="margin-top:22px">
+  <h1>Listings & delistings</h1>
+  <span style="margin-left:auto;font-family:'JetBrains Mono';font-size:12px" id="summary"></span>
+</div>
+
+<div class="toolbar" style="position:static;border:none">
+  <span class="lbl">Show</span>
+  <span class="fbtn ebtn act" data-k="">all</span>
+  <span class="fbtn ebtn" data-k="listing">new listings</span>
+  <span class="fbtn ebtn" data-k="delisted">delistings</span>
+  <span class="sep"></span>
+  <label style="font-family:'JetBrains Mono';font-size:11px;color:var(--dim);cursor:pointer">
+    <input type="checkbox" id="hideflap" checked> hide connector flaps</label>
+</div>
+
+<section class="cat" style="margin-top:6px">
+  <table>
+    <thead><tr><th>Time (UTC)</th><th>Event</th><th>Venue</th><th>Symbol</th><th>Underlying</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</section>
+
+<p class="footnote"><b>LIVE</b> · every hour the service reconciles the full instrument list of each venue → new = listing, missing for 5 polls = delisting. "Flap" — an instrument whose status flips >3 times/day (unstable exchange response, not a real listing); hidden by default.</p>
+
+</div>
+<script src="static/live.js"></script>
+<script>
+let kind = '', hideflap = true, DATA = [];
+const VSHORT = {binance_fut:'Binance Fut', okx_fut:'OKX', bitget_fut:'Bitget F', gate_fut:'Gate F',
+  bybit_fut:'Bybit F', mexc_fut:'MEXC F', kucoin_fut:'KuCoin F', coinbase_intx:'INTX', cryptocom:'Crypto.com',
+  kraken_fut:'Kraken D', bingx_fut:'BingX F', htx_fut:'HTX F', lighter:'Lighter', aster:'Aster', ostium:'Ostium',
+  grvt:'GRVT', edgex:'edgeX', apex:'ApeX', kraken_spot:'Kraken', bybit_spot:'Bybit', gate_spot:'Gate',
+  mexc_spot:'MEXC', bitget_spot:'Bitget', binance_bstocks:'bStocks'};
+const vn = v => VSHORT[v] || (v && v.startsWith('hip3:') ? v.slice(5) : v);
+function draw() {
+  const list = DATA.filter(e => (!kind || e.kind === kind) && !(hideflap && e.flap));
+  document.getElementById('rows').innerHTML = list.map(e => `
+    <tr>
+      <td class="num mut">${e.ts.slice(0,19).replace('T',' ')}</td>
+      <td>${e.kind === 'listing'
+        ? '<span class="chip new">listing</span>'
+        : '<span class="chip warn">delisted</span>'}${e.flap ? ' <span class="chip mut" style="border-color:var(--line2)">flap</span>' : ''}</td>
+      <td>${esc(vn(e.venue_id))}</td>
+      <td class="num">${esc(e.symbol)}</td>
+      <td>${e.underlying ? `<a class="vn" href="assets.html?t=${eurl(e.underlying)}">${esc(e.underlying)}</a>` : '<span class="mut">—</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="mut" style="text-align:center;padding:14px">no events</td></tr>';
+}
+async function load() {
+  const d = await j('api/events?limit=300');
+  DATA = d.events;
+  const a = d.last24h || {};
+  document.getElementById('summary').innerHTML =
+    `last 24h (excl. flaps): <b style="color:var(--c-preipo)">${a.listing||0}</b> listings · <b style="color:var(--red)">${a.delisted||0}</b> delistings`;
+  draw();
+}
+document.querySelectorAll('.ebtn').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.ebtn').forEach(x => x.classList.remove('act'));
+  b.classList.add('act'); kind = b.dataset.k; draw();
+});
+document.getElementById('hideflap').onchange = e => { hideflap = e.target.checked; draw(); };
+bindTheme(); renderHealth(); load();
+setInterval(() => { renderHealth(); load(); }, 30000);
+</script>
+</body>
+</html>
