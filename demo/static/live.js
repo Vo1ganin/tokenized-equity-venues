@@ -45,7 +45,7 @@ function sparkSvg(v, color) {
   const w = 70, h = 18, mx = Math.max(...v), mn = Math.min(...v);
   const pts = v.map((y, i) => `${(i/(v.length-1))*w},${h-2-((y-mn)/(mx-mn||1))*(h-4)}`).join(' ');
   const up = v[v.length-1] >= v[0];
-  return `<svg class="spark" width="${w}" height="${h}"><polyline points="${pts}" stroke="${color || (up ? 'var(--green)' : 'var(--red)')}"/></svg>`;
+  return `<svg class="spark" aria-hidden="true" width="${w}" height="${h}"><polyline points="${pts}" stroke="${color || (up ? 'var(--green)' : 'var(--red)')}"/></svg>`;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function eurl(s){return encodeURIComponent(String(s==null?'':s));}
@@ -61,15 +61,21 @@ function vmParse(s) {
   return v;
 }
 function bindSort(scope = document) {
-  scope.querySelectorAll('table thead th').forEach(th => th.onclick = () => {
-    const tb = th.closest('table').querySelector('tbody');
-    const idx = [...th.parentNode.children].indexOf(th);
-    const asc = th.classList.contains('sorted') && !th.classList.contains('asc');
-    th.closest('table').querySelectorAll('th').forEach(x => x.classList.remove('sorted', 'asc'));
-    th.classList.add('sorted'); if (asc) th.classList.add('asc');
-    [...tb.children]
-      .sort((a, b) => { const A = vmParse(a.children[idx]?.textContent || ''), B = vmParse(b.children[idx]?.textContent || ''); return asc ? A - B : B - A; })
-      .forEach(r => tb.appendChild(r));
+  scope.querySelectorAll('table thead th').forEach(th => {
+    th.tabIndex = 0;  // keyboard-sortable
+    const run = () => {
+      const tb = th.closest('table').querySelector('tbody');
+      const idx = [...th.parentNode.children].indexOf(th);
+      const asc = th.classList.contains('sorted') && !th.classList.contains('asc');
+      th.closest('table').querySelectorAll('th').forEach(x => { x.classList.remove('sorted', 'asc'); x.removeAttribute('aria-sort'); });
+      th.classList.add('sorted'); if (asc) th.classList.add('asc');
+      th.setAttribute('aria-sort', asc ? 'ascending' : 'descending');
+      [...tb.children]
+        .sort((a, b) => { const A = vmParse(a.children[idx]?.textContent || ''), B = vmParse(b.children[idx]?.textContent || ''); return asc ? A - B : B - A; })
+        .forEach(r => tb.appendChild(r));
+    };
+    th.onclick = run;
+    th.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); } };
   });
 }
 

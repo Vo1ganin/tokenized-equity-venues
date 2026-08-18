@@ -181,6 +181,7 @@ h3.ph { font-family: 'JetBrains Mono'; font-size: 10px; font-weight: 700; text-t
 .fbtn {
   font-family: 'JetBrains Mono'; font-size: 10.5px; color: var(--dim); cursor: pointer;
   padding: 4px 10px; border-radius: 2px; border: 1px solid var(--line2); background: var(--panel);
+  appearance: none;
 }
 .fbtn:hover { color: var(--txt); }
 .fbtn.act { color: #0a0d10; background: var(--amber); border-color: var(--amber); font-weight: 700; }
@@ -236,11 +237,15 @@ th.sorted.asc::after { content: ' ▴'; }
 }
 .theme-btn:hover { color: var(--txt); border-color: var(--amber); }
 
+/* ── keyboard focus ── */
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 2px; }
+th:focus-visible { outline-offset: -2px; }
+
 /* ── light theme ── */
 html.light {
   --bg: #f3f1ea; --bg2: #ebe8df; --panel: #ffffff; --panel2: #f6f4ee;
   --line: #ddd8cb; --line2: #c6bfae;
-  --txt: #24313b; --dim: #5d6b76; --faint: #95a0a9;
+  --txt: #24313b; --dim: #5d6b76; --faint: #77828c;
   --amber: #a96e0a; --green: #0d8a47; --red: #c43535;
   --c-dexperp: #0d6fab; --c-cexspot: #a96e0a; --c-cexfut: #bb5a10; --c-preipo: #9c3794; --c-amm: #0d8a47;
   --c-off: #7d8893;
@@ -254,3 +259,31 @@ html.light td { border-bottom-color: rgba(0,0,0,.07); }
 html.light .kpi::after { background: none; }
 html.light .dot.live { box-shadow: 0 0 5px rgba(13,138,71,.6); }
 html.light code, html.light .code { background: rgba(169,110,10,.1); }
+
+/* ── motion preferences ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ── responsive baseline: wide tables scroll inside their section, not the page ── */
+section.cat, .panel { overflow-x: auto; }
+
+@media (max-width: 1100px) {
+  .kpis { grid-template-columns: repeat(3, 1fr) !important; }  /* overrides per-page inline column counts */
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .vlayout { grid-template-columns: 1fr; }
+  .vside { position: static; max-height: none; }
+}
+
+@media (max-width: 760px) {
+  .wrap { padding: 0 14px 60px; }
+  header { flex-wrap: wrap; gap: 10px 16px; position: static; }
+  nav { flex-wrap: wrap; order: 3; width: 100%; }
+  nav a { padding: 6px 9px; }
+  .hdr-meta { display: none; }
+  .kpis { grid-template-columns: repeat(2, 1fr) !important; }
+  .kpi .v { font-size: 19px; }
+  .toolbar { flex-wrap: wrap; }
+  .covrow { grid-template-columns: 90px 1fr; }
+  .covrow > :last-child { display: none; }
+}
