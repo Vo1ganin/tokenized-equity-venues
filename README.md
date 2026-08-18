@@ -1,8 +1,13 @@
 # Venues Monitor
 
+[![CI](https://github.com/Vo1ganin/tokenized-equity-venues/actions/workflows/ci.yml/badge.svg)](https://github.com/Vo1ganin/tokenized-equity-venues/actions/workflows/ci.yml)
+
 Live dashboard of every venue where US equities trade **outside traditional markets**:
 tokenized stocks (spot), stock perpetuals on DEXes and CEXes, index/commodity contracts,
 and pre-IPO instruments — all on crypto rails.
+
+**[Demo →](https://vo1ganin.github.io/tokenized-equity-venues/)** — a frozen static
+snapshot of the dashboard, no backend needed · [Architecture](docs/ARCHITECTURE.md)
 
 ![Overview](docs/img/overview.png)
 
